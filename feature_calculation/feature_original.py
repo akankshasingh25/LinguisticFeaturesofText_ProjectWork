@@ -1,24 +1,17 @@
 import re
-from turtle import pos
 import nltk
 import stanza
-import random
-import collections
 import numpy as np
-from scipy.optimize import curve_fit
-from lexical_diversity import lex_div as ld
 
 from feature_calculation.lexical_div_cal import LexicalDiversity
 from feature_calculation.pos_ratios_cal import HighLevelRatios
 # from feature_calculation.sentence_complexity import SentenceComplexity
-# from feature_calculation.dep_relations import DependencyRelations
+from feature_calculation.dep_relations import DependencyRelations
 
 class Features:
 
 	def __init__(self):
-		#self.nlp = stanza.Pipeline(lang='en', processors={'tokenize': 'spacy'})
-		self.nlp = stanza.Pipeline(lang='en', processors = 'tokenize , pos')
-		self.optional_data = {}
+		self.nlp = stanza.Pipeline(lang='en', processors={'tokenize': 'spacy'})
 
 	def safe_divide(self, numerator, denominator):
 		if denominator == 0 or denominator == 0.0:
@@ -37,15 +30,12 @@ class Features:
 		
 		ld_measures = self.get_ld_measure(text)
 		temp.update(ld_measures)
-
 		pos_measures = self.get_pos_ratios(text)
 		temp.update(pos_measures)
-
 		# sen_com_measures = self.get_sen_comp(sen_list)
 		# temp.update(sen_com_measures)
-
-		# all_dep_measures = self.get_all_dep_feats(sen_list)
-		# temp.update(all_dep_measures)
+		all_dep_measures = self.get_all_dep_feats(sen_list)
+		temp.update(all_dep_measures)
 		
 		return temp
 
@@ -89,6 +79,7 @@ class Features:
 		return ld_data
 		
 	def get_pos_ratios(self, text):
+
 		doc = self.nlp(text)
 		adverb, adjective, pronoun, noun, verb, others = 0, 0, 0, 0, 0, 0
 		
@@ -122,7 +113,7 @@ class Features:
 					}
 
 		return pos_data
-		
+
 	# def get_sen_comp(self, sen_list, text=None):
 	# 	sen_com_data = {}
 	# 	sen_com = SentenceComplexity()
@@ -145,41 +136,40 @@ class Features:
 
 	# 	return sen_com_data
 
-	# def get_all_dep_feats(self, sen_list, text=None):
-	# 	dep_feat_data = {}
-	# 	arguments_tags = ['nsubj', 'obj', 'ccomp', 'conj', 'csubj:pass', 'iobj']
+	def get_all_dep_feats(self, sen_list, text=None):
+		dep_feat_data = {}
+		arguments_tags = ['nsubj', 'obj', 'ccomp', 'conj', 'csubj:pass', 'iobj']
 		
-	# 	for sen in sen_list:
-	# 		sen = re.sub(r'[^\w\s]', ' ', sen)
-	# 		sen = ' '.join(sen.split())
-	# 		rel_bi, dep_tri = self.get_dependency_features(sen)
-	# 		adjuncts = sum([rel_bi[x] for x in list(rel_bi.keys()) if x not in arguments_tags])
-	# 		arguments = sum([rel_bi[y] for y in list(rel_bi.keys()) if y in arguments_tags])
-	# 		dep_feat_data['arguments/adjuncts'] = self.safe_divide(arguments, adjuncts)
+		for sen in sen_list:
+			sen = re.sub(r'[^\w\s]', ' ', sen)
+			sen = ' '.join(sen.split())
+			rel_bi, dep_tri = self.get_dependency_features(sen)
+			adjuncts = sum([rel_bi[x] for x in list(rel_bi.keys()) if x not in arguments_tags])
+			arguments = sum([rel_bi[y] for y in list(rel_bi.keys()) if y in arguments_tags])
+			dep_feat_data['arguments/adjuncts'] = self.safe_divide(arguments, adjuncts)
 			
-	# 		for key, val in (rel_bi+dep_tri).items():
-	# 			if key in dep_feat_data:
-	# 				dep_feat_data[key] += val
-	# 			else:
-	# 				dep_feat_data[key] = val
+			for key, val in (rel_bi+dep_tri).items():
+				if key in dep_feat_data:
+					dep_feat_data[key] += val
+				else:
+					dep_feat_data[key] = val
 
-	# 	return dep_feat_data
+		return dep_feat_data
 
-	# def get_dependency_features(self, sentence):
-	# 	doc = self.nlp(sentence)
-	# 	trigrams = []
-	# 	relations = []
-	# 	for index,sent in enumerate(doc.sentences):
-	# 		for word in sent.words:
-	# 			if word.deprel != 'root':
-	# 				relations.append(word.deprel)
-	# 				if word.id > word.head: 
-	# 					position = 'before'
-	# 				else:
-	# 					position = 'after'
-	# 				feat = str((doc.sentences[index].words[word.head-1].upos, word.upos, position))
-	# 				trigrams.append(feat)
-	# 	rel_bi = nltk.FreqDist(relations)
-	# 	dep_tri = nltk.FreqDist(trigrams)
-        
-	# 	return rel_bi, dep_tri
+	def get_dependency_features(self, sentence):
+		doc = self.nlp(sentence)
+		trigrams = []
+		relations = []
+		for index,sent in enumerate(doc.sentences):
+			for word in sent.words:
+				if word.deprel != 'root':
+					relations.append(word.deprel)
+					if word.id > word.head: 
+						position = 'before'
+					else:
+						position = 'after'
+					feat = str((doc.sentences[index].words[word.head-1].upos, word.upos, position))
+					trigrams.append(feat)
+		rel_bi = nltk.FreqDist(relations)
+		dep_tri = nltk.FreqDist(trigrams)
+		return rel_bi, dep_tri
