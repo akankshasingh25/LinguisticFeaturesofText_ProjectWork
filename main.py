@@ -10,6 +10,8 @@ from feature_calculation.feature import Features
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_selection import RFECV
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 
 # reading dataset
 df = pd.read_csv(r'C:\Users\akank\Dropbox\My PC (LAPTOP-NQ9H8NTJ)\Documents\Sem 8\Project\datasets\brown\brown.csv')
@@ -97,22 +99,25 @@ for file_id, filename in df_dict.items():
 features = pd.DataFrame(feature_list)
 features.to_csv("extracted_features.csv")
 
-# calling the dataframe which will be used for training
-X = pd.read_csv(r'C:\Users\akank\Dropbox\My PC (LAPTOP-NQ9H8NTJ)\Documents\Sem 8\Project\code\extracted_features.csv')
-y = pd.read_csv(r'C:\Users\akank\Dropbox\My PC (LAPTOP-NQ9H8NTJ)\Documents\Sem 8\Project\code\labels.csv')
-X = X.fillna(0)
-print(X.head())
-
 ##################################################################
 #####                  4. SUPERVISED LEARNING                #####
 ##################################################################
 
+# calling the dataframe which will be used for training
+data = pd.read_csv(r'C:\Users\akank\Dropbox\My PC (LAPTOP-NQ9H8NTJ)\Documents\Sem 8\Project\code\extracted_features.csv')
+y = pd.read_csv(r'C:\Users\akank\Dropbox\My PC (LAPTOP-NQ9H8NTJ)\Documents\Sem 8\Project\code\labels.csv')
+data = data.fillna(0)
 
 # scaling data
 scaler = StandardScaler()
-scaled_data = scaler.fit(X)
-scaled_data = scaler.transform(X)
-print(scaled_data)
+X = scaler.fit_transform(data)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print(X_train.shape)
+print(X_test.shape)
+print(y_train.shape)
+print(y_test.shape)
 
 # defining classifier
 clf = LogisticRegression(penalty = 'l1', solver= 'saga', max_iter = 1000)
@@ -124,17 +129,46 @@ rfecv = RFECV(
     scoring= "accuracy",
     n_jobs=2,
 )
-rfecv.fit(scaled_data, y.label)
+rfecv.fit(X_train, y_train.label)
+y_pred = rfecv.predict(X_test)
+accuracy_score = rfecv.score(X_test, y_test.label)
 
+##################################################################
+#####                       5. RESULTS                       #####
+##################################################################
 # printing results
-print(f"Optimal number of features: {rfecv.n_features_}")
-print(f"Ranking of features (Selected features are given rank 1): {rfecv.ranking_}")
+print('\nTesting Accuracy:\n', accuracy_score)
+print('\nClassification Report:\n', classification_report(y_test.label, y_pred))
 
-# visualising the result
-print(X.columns)
+print(f"Ranking of features (Selected features are given rank 1): {rfecv.ranking_}")
+print(data.columns)
 
 optimal_features = []
-for i in range(len(X.columns)):
+for i in range(len(data.columns)):
     if((rfecv.ranking_[i])==1):
-        optimal_features.append(X.columns[i])
-print(optimal_features)
+        optimal_features.append(data.columns[i])
+
+print(f"Optimal number of features: {rfecv.n_features_}")
+print('\nOptimal feature used for classification:\n', optimal_features)
+
+# storing values of the features for each class
+count_fiction = {'adjadv': 0, 'advpron': 0, 'nounverb': 0, 'maasTTR': 0, 'confunc': 0}
+count_nonfiction = {'adjadv': 0, 'advpron': 0, 'nounverb': 0, 'maasTTR': 0, 'confunc': 0}
+
+for i in range(len(data.columns)):
+    if(y.label[i] =='fiction_genre'):
+        count_fiction['adjadv'] += data.loc[i].at['adjective/verb']
+        count_fiction['advpron'] += data.loc[i].at['adverb/pronoun']
+        count_fiction['nounverb'] += data.loc[i].at['noun/verb']
+        count_fiction['maasTTR'] += data.loc[i].at['Maas TTR']
+        count_fiction['confunc'] += data.loc[i].at['content/function']
+
+    elif(y.label[i] =='non_fiction_genre'): 
+        count_nonfiction['adjadv'] += data.loc[i].at['adjective/verb']
+        count_nonfiction['advpron'] += data.loc[i].at['adverb/pronoun']
+        count_nonfiction['nounverb'] += data.loc[i].at['noun/verb']
+        count_nonfiction['maasTTR'] += data.loc[i].at['Maas TTR']
+        count_nonfiction['confunc'] += data.loc[i].at['content/function']
+    
+print('\nCount of Features for Fiction Genre:\n', count_fiction)
+print('\nCount of Features for Non-Fiction Genre:\n', count_nonfiction)
